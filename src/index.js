@@ -19,6 +19,16 @@ function verificaContaCPF(request, response, next) {
   return next();
 }
 
+function getSaldo(statement) {
+  const saldo = statement.reduce((acc, operation) => {
+    if(operation.type === 'credit') {
+      return acc + operation.amount;
+    } else {
+      return acc - operation.amount;
+    }
+  }, 0)
+}
+
 app.post("/account", (request, response) => {
   const { cpf, name } = request.body;
   const id = uuidv4();
@@ -61,7 +71,17 @@ app.post("/deposit", verificaContaCPF, (request, response) => {
 app.post("withdraw", verificaContaCPF, (request, response) => {
   const { amount } = request.body;
   const { customer } = request;
-  
+  const saldo = getSaldo(customer.statement);
+  if (saldo < amount) {
+    response.status(400).json({ error: "Saldo insuficiente" });
+  }
+  const statementOperation = {
+    amount,
+    create_at: new Date(),
+    type: 'debit'
+  };
+  customer.statement.push(statementOperation);
+  return response.status(201).send();
 })
 
 app.listen(3333);
